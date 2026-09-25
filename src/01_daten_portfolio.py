@@ -39,6 +39,6 @@ print(tabelle.map(lambda v: f"{v:.1%}"))
 print("\nKorrelationen:\n", renditen.corr().round(2))
 
 # %% Daten einfrieren – alle weiteren Schritte lesen nur noch diese Datei
-np.savez("portfolio_daten.npz", ticker=TICKER, mu=mu, sigma=sigma)
-kurse.to_csv("kurse_2025.csv")
+np.savez("../data/portfolio_daten.npz", ticker=TICKER, mu=mu, sigma=sigma)
+kurse.to_csv("../data/kurse_2025.csv")
 print("\nGespeichert: portfolio_daten.npz, kurse_2025.csv")
