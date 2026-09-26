@@ -3,9 +3,13 @@ name = "portfolio-optimization-demo"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "estimator>=0.0.10",
+    "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "pandas>=3.0.6",
+    "qiskit>=2.5.2",
     "qiskit-finance>=0.4.1",
     "qiskit-optimization>=0.7.0",
+    "scipy>=1.18.1",
     "yfinance>=1.7.0",
 ]
