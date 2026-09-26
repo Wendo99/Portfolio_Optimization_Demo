@@ -1,0 +1,65 @@
+{
+  "parameter": {
+    "n": 4,
+    "B": 2,
+    "lambda": 0.5,
+    "alpha": 0.44025000582849827,
+    "p": 1,
+    "shots": 10000,
+    "seed": 42,
+    "suchfenster_gamma": [
+      0.0,
+      50.26548245743669
+    ],
+    "raster": [
+      40,
+      800
+    ]
+  },
+  "optimierung": {
+    "gamma_opt": 39.216028278056264,
+    "beta_opt": 0.7042309909319802,
+    "erwartete_kosten": -0.09826324990742513,
+    "auswertungen_cobyla": 39
+  },
+  "ergebnis": {
+    "optimum": "GOOG+NVDA",
+    "P_zul": 0.8442,
+    "P_opt": 0.6957,
+    "P_zul_raten": 0.375,
+    "P_opt_raten": 0.0625,
+    "zulaessige_portfolios": {
+      "GOOG+NVDA": {
+        "C": -0.24144722833933413,
+        "gemessen": 0.6957
+      },
+      "GOOG+META": {
+        "C": -0.18868330243813666,
+        "gemessen": 0.0334
+      },
+      "GOOG+AMZN": {
+        "C": -0.16276867902682807,
+        "gemessen": 0.0187
+      },
+      "META+NVDA": {
+        "C": -0.002506043239073552,
+        "gemessen": 0.0447
+      },
+      "AMZN+NVDA": {
+        "C": 0.01414316587818798,
+        "gemessen": 0.0447
+      },
+      "AMZN+META": {
+        "C": 0.07953337953910139,
+        "gemessen": 0.007
+      }
+    }
+  },
+  "versionen": {
+    "python": "3.14.7",
+    "qiskit": "2.5.2",
+    "qiskit_optimization": "0.7.0",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1"
+  }
+}
