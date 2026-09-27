@@ -2,6 +2,7 @@
 
 import itertools
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass
 from functools import cached_property
@@ -184,18 +185,19 @@ def sample(qaoa: QAOA, params, pf: Portfolio,
 
 
 def drawing_circuit(h_c: SparsePauliOp, reps: int,
-                    decimals: int | None = 2) -> QuantumCircuit:
+                    symbolic: bool = True) -> QuantumCircuit:
     """Gate-level QAOA circuit with labeled layers, for display only.
 
-    Same gates as qaoa_ansatz: Z_i -> Rz(2c·γ), Z_iZ_j -> Rzz(2c·γ), mixer Rx(2β).
-    Coefficients are rounded to `decimals` (None = exact, for checking).
+    Same gates as qaoa_ansatz for H_C = Σ h_i Z_i + Σ J_ij Z_i Z_j:
+    Z_i -> Rz(2h_i·γ), Z_iZ_j -> Rzz(2J_ij·γ), mixer Rx(2β).
+    symbolic=True labels the angles with h_i, J_ij (no numbers);
+    symbolic=False uses the exact coefficients (for checking against qaoa_ansatz).
     Measurements are drawn as "M" boxes without classical bits, so the drawer
     places them in one column (real measurements are always staggered).
     The cost terms are all diagonal and commute, so they are reordered to make
     the figure narrower: all Rz first, then the ZZ gates packed into as few
     columns as possible (e.g. ZZ(0,1) and ZZ(2,3) side by side).
     """
-    sub = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
     terms = [(np.flatnonzero(pauli.z).tolist(), coeff)
              for pauli, coeff in zip(h_c.paulis, h_c.coeffs.real, strict=True)]
     singles = [t for t in terms if len(t[0]) == 1]
@@ -211,26 +213,34 @@ def drawing_circuit(h_c: SparsePauliOp, reps: int,
         col.append(t)
     ordered = singles + [t for col in columns for t in col]
 
-    regs = [QuantumRegister(1, f"x{i + 1}".translate(sub)) for i in range(h_c.num_qubits)]
+    # ASCII names; plot_circuit turns them into $x_{i}$ (Qiskit escapes "_")
+    regs = [QuantumRegister(1, f"x{i + 1}") for i in range(h_c.num_qubits)]
     qc = QuantumCircuit(*regs)
     # Each barrier label marks the block that follows it;
     # the initial state is shown by the |0⟩ wire labels
     qc.h(range(qc.num_qubits))
+    sep = "" if qc.num_qubits < 10 else ","  # J_12, or J_{10,11} for many qubits
     for k in range(1, reps + 1):
         # $...$ is rendered by matplotlib mathtext; braces only for k >= 10,
         # since Qiskit truncates barrier labels longer than 16 characters
-        i = str(k) if k < 10 else f"{{{k}}}"
-        gamma = Parameter(rf"$\gamma_{i}$")
-        beta = Parameter(rf"$\beta_{i}$")
-        qc.barrier(label=rf"$U_C(\gamma_{i})$")
+        ks = str(k) if k < 10 else f"{{{k}}}"
+        gamma = Parameter(rf"$\gamma_{ks}$")
+        beta = Parameter(rf"$\beta_{ks}$")
+        qc.barrier(label=rf"$U_C(\gamma_{ks})$")
         for qubits, coeff in ordered:
-            factor = 2 * coeff if decimals is None else round(2 * coeff, decimals)
-            if len(qubits) == 1:
-                qc.rz(factor * gamma, qubits[0])
+            if symbolic:
+                idx = sep.join(str(q + 1) for q in qubits)
+                name = "h" if len(qubits) == 1 else "J"
+                angle = Parameter(rf"$2{name}_{{{idx}}}\gamma_{ks}$")
             else:
-                qc.rzz(factor * gamma, *qubits)
-        qc.barrier(label=rf"$U_M(\beta_{i})$")
-        qc.rx(2 * beta, range(qc.num_qubits))
+                angle = 2 * coeff * gamma
+            if len(qubits) == 1:
+                qc.rz(angle, qubits[0])
+            else:
+                qc.rzz(angle, *qubits)
+        qc.barrier(label=rf"$U_M(\beta_{ks})$")
+        mixer_angle = Parameter(rf"$2\beta_{ks}$") if symbolic else 2 * beta
+        qc.rx(mixer_angle, range(qc.num_qubits))
     qc.barrier(label="Messung")
     for q in range(qc.num_qubits):
         qc.append(Instruction("M", 1, 0, [], label=r"$\mathcal{M}$"), [q])
@@ -343,12 +353,21 @@ def plot_distribution(pf: Portfolio, prob: dict, cfg: Config, path: Path) -> Non
 def plot_circuit(h_c: SparsePauliOp, reps: int, ticker, path: Path) -> None:
     """Gate-level QAOA circuit: |0⟩, H, cost layer, mixer, measurement."""
     style = {"name": "iqp", "displaycolor": {"M": ("#A0A0A0", "#000000")}}
-    fig = drawing_circuit(h_c, reps).draw("mpl", initial_state=True, fold=-1,
-                                          style=style)
-    mapping = ", ".join(rf"$x_{{{i}}}$={t}"
-                        for i, t in enumerate(ticker, start=1))
-    fig.suptitle(rf"QAOA-Schaltkreis ($p = {reps}$) – {mapping}")
-    fig.savefig(path, dpi=400, bbox_inches="tight")
+    # Computer Modern (LaTeX font) for all $...$ math
+    with plt.rc_context({"mathtext.fontset": "cm"}):
+        fig = drawing_circuit(h_c, reps).draw("mpl", initial_state=True,
+                                              fold=-1, style=style)
+        # Qiskit labels the wires "${x1}$ $|0\rangle$" -> "$x_{1}$ $∣0⟩$".
+        # mathtext's \rangle is too big next to "|"; the Unicode glyphs
+        # ∣ (U+2223) and ⟩ (U+27E9) have equal height in Computer Modern,
+        # like \left|0\right\rangle in LaTeX
+        for text in fig.axes[0].texts:
+            label = re.sub(r"^\$\{x(\d+)\}\$", r"$x_{\1}$", text.get_text())
+            text.set_text(label.replace(r"$|0\rangle$", "$∣0⟩$"))
+        mapping = ", ".join(rf"$x_{{{i}}}$={t}"
+                            for i, t in enumerate(ticker, start=1))
+        fig.suptitle(rf"QAOA-Schaltkreis ($p = {reps}$) – {mapping}")
+        fig.savefig(path, dpi=400, bbox_inches="tight")
     plt.close(fig)
 
 
