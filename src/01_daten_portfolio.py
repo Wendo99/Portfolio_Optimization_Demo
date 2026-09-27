@@ -1,44 +1,81 @@
-# %% [markdown]
-# # Datenbeschaffung – Portfolio-Instanz
-# Aktien wie bei Baker et al. (2022): GOOG, AMZN, FB (heute META), NVDA
-# Zeitraum: Kalenderjahr 2025 (02.01. – 31.12.2025), letztes vollständiges Jahr
-# Ergebnis: mu (erwartete Renditen) und sigma (Kovarianzmatrix),
-#           eingefroren in portfolio_daten.npz für alle weiteren Schritte
+"""Data acquisition – portfolio instance.
 
-# %%
+Stocks as in Baker et al. (2022): GOOG, AMZN, FB (now META), NVDA.
+Period: 31.12.2024 close as base → full-year 2025 returns
+Result: mu (expected returns) and sigma (covariance matrix),
+        frozen in portfolio_daten.npz for all further steps.
+"""
+
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
 
-TICKER = ["GOOG", "AMZN", "META", "NVDA"]
-START, ENDE = "2025-01-01", "2026-01-01"  # Ende ist bei yfinance exklusiv
-HANDELSTAGE_PRO_JAHR = 252
+ROOT = Path(__file__).resolve().parent.parent
 
-# %% Kurse laden (dividenden-/splitbereinigte Schlusskurse)
-kurse = yf.download(TICKER, start=START, end=ENDE,
-                    auto_adjust=True, progress=False)["Close"][TICKER]
-print(f"{len(kurse)} Handelstage geladen")
 
-# %% Tägliche Renditen, mu und sigma
-renditen = kurse.pct_change().dropna()  # 249 Tagesrenditen
-mu_tag = renditen.mean().to_numpy()
-sigma_tag = renditen.cov().to_numpy()
+@dataclass(frozen=True)
+class Config:
+    ticker: tuple[str, ...] = ("GOOG", "AMZN", "META", "NVDA")
+    start: str = "2024-12-31"
+    end: str = "2026-01-01"  # end is exclusive in yfinance
+    trading_days_per_year: int = 252
+    datafile: str = "portfolio_daten.npz"
+    pricefile: str = "kurse_2025.csv"
 
-# Annualisierung (Hodson et al. 2019): ändert die optimale Lösung nicht,
-# da Risiko- und Renditeterm mit demselben Faktor skaliert werden, sorgt aber
-# für sinnvolle Größenordnungen der Winkel im Schaltkreis.
-mu = mu_tag * HANDELSTAGE_PRO_JAHR
-sigma = sigma_tag * HANDELSTAGE_PRO_JAHR
 
-# %% Tabelle für Folie 10 (anschauliche Größen)
-tabelle = pd.DataFrame({
-  "Rendite 2025": kurse.iloc[-1] / kurse.iloc[0] - 1,
-  "Volatilität p.a.": renditen.std() * np.sqrt(HANDELSTAGE_PRO_JAHR),
-})
-print(tabelle.map(lambda v: f"{v:.1%}"))
-print("\nKorrelationen:\n", renditen.corr().round(2))
+def load_prices(cfg: Config) -> pd.DataFrame:
+    """Dividend-/split-adjusted closing prices, columns in cfg.ticker order."""
+    prices = yf.download(list(cfg.ticker), start=cfg.start, end=cfg.end,
+                         auto_adjust=True, progress=False)["Close"]
+    return prices[list(cfg.ticker)]
 
-# %% Daten einfrieren – alle weiteren Schritte lesen nur noch diese Datei
-np.savez("../data/portfolio_daten.npz", ticker=TICKER, mu=mu, sigma=sigma)
-kurse.to_csv("../data/kurse_2025.csv")
-print("\nGespeichert: portfolio_daten.npz, kurse_2025.csv")
+
+def annualized_moments(returns: pd.DataFrame,
+                       cfg: Config) -> tuple[np.ndarray, np.ndarray]:
+    """Annualization (Hodson et al. 2019): does not change the optimal solution,
+    since risk and return term are scaled by the same factor, but gives
+    sensible magnitudes for the angles in the circuit.
+    """
+    mu = returns.mean().to_numpy() * cfg.trading_days_per_year
+    sigma = returns.cov().to_numpy() * cfg.trading_days_per_year
+    return mu, sigma
+
+
+def slide_table(prices: pd.DataFrame, returns: pd.DataFrame,
+                cfg: Config) -> pd.DataFrame:
+    """Illustrative figures for slide 10."""
+    return pd.DataFrame({
+        "Rendite 2025": prices.iloc[-1] / prices.iloc[0] - 1,
+        "Volatilität p.a.": returns.std() * np.sqrt(cfg.trading_days_per_year),
+    })
+
+
+def save(cfg: Config, prices: pd.DataFrame, mu: np.ndarray,
+         sigma: np.ndarray) -> None:
+    """Freeze the data – all further steps only read these files."""
+    data_dir = ROOT / "data"
+    data_dir.mkdir(exist_ok=True)
+    np.savez(data_dir / cfg.datafile, ticker=list(cfg.ticker), mu=mu, sigma=sigma)
+    prices.to_csv(data_dir / cfg.pricefile)
+
+
+def main(cfg: Config | None = None) -> None:
+    cfg = cfg or Config()
+    prices = load_prices(cfg)
+    returns = prices.pct_change().dropna()
+    print(f"{len(prices)} Handelstage geladen, {len(returns)} Tagesrenditen")
+
+    mu, sigma = annualized_moments(returns, cfg)
+
+    print(slide_table(prices, returns, cfg).map(lambda v: f"{v:.1%}"))
+    print("\nKorrelationen:\n", returns.corr().round(2))
+
+    save(cfg, prices, mu, sigma)
+    print(f"\nGespeichert: {cfg.datafile}, {cfg.pricefile}")
+
+
+if __name__ == "__main__":
+    main()
