@@ -123,7 +123,7 @@ def check_hamiltonian(pf: Portfolio, h_c: SparsePauliOp, offset: float) -> None:
 class QAOA:
     """Energy evaluation for a QAOA ansatz.
 
-    Parameter vectors follow ansatz.parameters: (β_1..β_p, γ_1..γ_p).
+    Parameter vectors follow ansatz.parameters: (β_1…β_p, γ_1…γ_p).
     """
 
     def __init__(self, h_c: SparsePauliOp, offset: float, reps: int,
@@ -185,7 +185,7 @@ def sample(qaoa: QAOA, params, pf: Portfolio,
 
 def drawing_circuit(h_c: SparsePauliOp, reps: int,
                     decimals: int | None = 2) -> QuantumCircuit:
-    """Gate-level QAOA circuit with labelled layers, for display only.
+    """Gate-level QAOA circuit with labeled layers, for display only.
 
     Same gates as qaoa_ansatz: Z_i -> Rz(2c·γ), Z_iZ_j -> Rzz(2c·γ), mixer Rx(2β).
     Coefficients are rounded to `decimals` (None = exact, for checking).
@@ -200,7 +200,7 @@ def drawing_circuit(h_c: SparsePauliOp, reps: int,
              for pauli, coeff in zip(h_c.paulis, h_c.coeffs.real, strict=True)]
     singles = [t for t in terms if len(t[0]) == 1]
     # Greedy packing: a ZZ gate joins the first column whose gates' wire spans
-    # it does not overlap (the vertical line of ZZ(i, j) covers wires i..j)
+    # it does not overlap (the vertical line of ZZ(i, j) covers wires i…j)
     columns: list[list] = []
     for t in sorted((t for t in terms if len(t[0]) == 2), key=lambda t: t[0]):
         i, j = t[0]
@@ -217,20 +217,23 @@ def drawing_circuit(h_c: SparsePauliOp, reps: int,
     # the initial state is shown by the |0⟩ wire labels
     qc.h(range(qc.num_qubits))
     for k in range(1, reps + 1):
-        gamma = Parameter(f"γ{k}".translate(sub))
-        beta = Parameter(f"β{k}".translate(sub))
-        qc.barrier(label=f"U_C({gamma.name})")
+        # $...$ is rendered by matplotlib mathtext; braces only for k >= 10,
+        # since Qiskit truncates barrier labels longer than 16 characters
+        i = str(k) if k < 10 else f"{{{k}}}"
+        gamma = Parameter(rf"$\gamma_{i}$")
+        beta = Parameter(rf"$\beta_{i}$")
+        qc.barrier(label=rf"$U_C(\gamma_{i})$")
         for qubits, coeff in ordered:
             factor = 2 * coeff if decimals is None else round(2 * coeff, decimals)
             if len(qubits) == 1:
                 qc.rz(factor * gamma, qubits[0])
             else:
                 qc.rzz(factor * gamma, *qubits)
-        qc.barrier(label=f"U_M({beta.name})")
+        qc.barrier(label=rf"$U_M(\beta_{i})$")
         qc.rx(2 * beta, range(qc.num_qubits))
     qc.barrier(label="Messung")
     for q in range(qc.num_qubits):
-        qc.append(Instruction("M", 1, 0, []), [q])
+        qc.append(Instruction("M", 1, 0, [], label=r"$\mathcal{M}$"), [q])
     return qc
 
 
@@ -342,10 +345,9 @@ def plot_circuit(h_c: SparsePauliOp, reps: int, ticker, path: Path) -> None:
     style = {"name": "iqp", "displaycolor": {"M": ("#A0A0A0", "#000000")}}
     fig = drawing_circuit(h_c, reps).draw("mpl", initial_state=True, fold=-1,
                                           style=style)
-    sub = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-    mapping = ", ".join(f"x{i}".translate(sub) + f"={t}"
+    mapping = ", ".join(rf"$x_{{{i}}}$={t}"
                         for i, t in enumerate(ticker, start=1))
-    fig.suptitle(f"QAOA-Schaltkreis (p = {reps}) – {mapping}")
+    fig.suptitle(rf"QAOA-Schaltkreis ($p = {reps}$) – {mapping}")
     fig.savefig(path, dpi=400, bbox_inches="tight")
     plt.close(fig)
 
