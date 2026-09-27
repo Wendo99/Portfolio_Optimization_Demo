@@ -12,6 +12,8 @@ import qiskit
 import qiskit_optimization
 import scipy
 from matplotlib import pyplot as plt
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.circuit import Instruction, Parameter
 from qiskit.circuit.library import qaoa_ansatz
 from qiskit.primitives import StatevectorEstimator, StatevectorSampler
 from qiskit.quantum_info import SparsePauliOp
@@ -181,6 +183,57 @@ def sample(qaoa: QAOA, params, pf: Portfolio,
     return prob
 
 
+def drawing_circuit(h_c: SparsePauliOp, reps: int,
+                    decimals: int | None = 2) -> QuantumCircuit:
+    """Gate-level QAOA circuit with labelled layers, for display only.
+
+    Same gates as qaoa_ansatz: Z_i -> Rz(2c·γ), Z_iZ_j -> Rzz(2c·γ), mixer Rx(2β).
+    Coefficients are rounded to `decimals` (None = exact, for checking).
+    Measurements are drawn as "M" boxes without classical bits, so the drawer
+    places them in one column (real measurements are always staggered).
+    The cost terms are all diagonal and commute, so they are reordered to make
+    the figure narrower: all Rz first, then the ZZ gates packed into as few
+    columns as possible (e.g. ZZ(0,1) and ZZ(2,3) side by side).
+    """
+    sub = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+    terms = [(np.flatnonzero(pauli.z).tolist(), coeff)
+             for pauli, coeff in zip(h_c.paulis, h_c.coeffs.real, strict=True)]
+    singles = [t for t in terms if len(t[0]) == 1]
+    # Greedy packing: a ZZ gate joins the first column whose gates' wire spans
+    # it does not overlap (the vertical line of ZZ(i, j) covers wires i..j)
+    columns: list[list] = []
+    for t in sorted((t for t in terms if len(t[0]) == 2), key=lambda t: t[0]):
+        i, j = t[0]
+        col = next((c for c in columns
+                    if all(j < a or b < i for (a, b), _ in c)), None)
+        if col is None:
+            columns.append(col := [])
+        col.append(t)
+    ordered = singles + [t for col in columns for t in col]
+
+    regs = [QuantumRegister(1, f"x{i + 1}".translate(sub)) for i in range(h_c.num_qubits)]
+    qc = QuantumCircuit(*regs)
+    # Each barrier label marks the block that follows it;
+    # the initial state is shown by the |0⟩ wire labels
+    qc.h(range(qc.num_qubits))
+    for k in range(1, reps + 1):
+        gamma = Parameter(f"γ{k}".translate(sub))
+        beta = Parameter(f"β{k}".translate(sub))
+        qc.barrier(label=f"U_C({gamma.name})")
+        for qubits, coeff in ordered:
+            factor = 2 * coeff if decimals is None else round(2 * coeff, decimals)
+            if len(qubits) == 1:
+                qc.rz(factor * gamma, qubits[0])
+            else:
+                qc.rzz(factor * gamma, *qubits)
+        qc.barrier(label=f"U_M({beta.name})")
+        qc.rx(2 * beta, range(qc.num_qubits))
+    qc.barrier(label="Messung")
+    for q in range(qc.num_qubits):
+        qc.append(Instruction("M", 1, 0, []), [q])
+    return qc
+
+
 # %% Analysis
 def analyze(pf: Portfolio, prob: dict) -> dict:
     x_opt = pf.feasible[0]  # brute force
@@ -238,7 +291,7 @@ def plot_convergence(history: list[float], reps: int, path: Path) -> None:
     ax.set_ylabel("⟨C⟩ – erwartete Kosten")
     ax.set_title(f"Konvergenz der Parameteroptimierung (p = {reps})")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=400)
     plt.close(fig)
 
 
@@ -256,7 +309,7 @@ def plot_landscape(betas, gammas, raster, start, path: Path) -> None:
     ax.set_title("Energielandschaft ⟨C⟩(γ, β), p = 1")
     ax.legend(loc="upper right", fontsize=8)
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=400)
     plt.close(fig)
 
 
@@ -267,7 +320,7 @@ def plot_distribution(pf: Portfolio, prob: dict, cfg: Config, path: Path) -> Non
     x_sorted = pf.feasible + infeasible
     colors = ["tab:green" if x == x_opt
               else "tab:blue" if sum(x) == pf.budget
-              else "tab:red" for x in x_sorted]
+    else "tab:red" for x in x_sorted]
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.bar([pf.name(x) for x in x_sorted], [prob[x] for x in x_sorted],
            color=colors)
@@ -280,7 +333,20 @@ def plot_distribution(pf: Portfolio, prob: dict, cfg: Config, path: Path) -> Non
                  f"(p = {cfg.reps}, α_min, {cfg.shots} Shots)")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=400)
+    plt.close(fig)
+
+
+def plot_circuit(h_c: SparsePauliOp, reps: int, ticker, path: Path) -> None:
+    """Gate-level QAOA circuit: |0⟩, H, cost layer, mixer, measurement."""
+    style = {"name": "iqp", "displaycolor": {"M": ("#A0A0A0", "#000000")}}
+    fig = drawing_circuit(h_c, reps).draw("mpl", initial_state=True, fold=-1,
+                                          style=style)
+    sub = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+    mapping = ", ".join(f"x{i}".translate(sub) + f"={t}"
+                        for i, t in enumerate(ticker, start=1))
+    fig.suptitle(f"QAOA-Schaltkreis (p = {reps}) – {mapping}")
+    fig.savefig(path, dpi=400, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -318,6 +384,7 @@ def main(cfg: Config | None = None) -> dict:
     plot_convergence(qaoa.history, cfg.reps, images / "konvergenz.png")
     plot_landscape(betas, gammas, raster, start, images / "energielandschaft.png")
     plot_distribution(pf, prob, cfg, images / "messverteilung.png")
+    plot_circuit(h_c, cfg.reps, pf.ticker, images / "qaoa_schaltkreis.png")
     return summary
 
 
