@@ -28,8 +28,11 @@ class Config:
 
 def load_prices(cfg: Config) -> pd.DataFrame:
     """Dividend-/split-adjusted closing prices, columns in cfg.ticker order."""
-    prices = yf.download(list(cfg.ticker), start=cfg.start, end=cfg.end,
-                         auto_adjust=True, progress=False)["Close"]
+    downloaded = yf.download(list(cfg.ticker), start=cfg.start, end=cfg.end,
+                             auto_adjust=True, progress=False)
+    if downloaded is None:
+        raise RuntimeError("yfinance returned no price data")
+    prices = downloaded["Close"]
     return prices[list(cfg.ticker)]
 
 
