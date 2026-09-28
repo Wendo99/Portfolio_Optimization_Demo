@@ -13,7 +13,7 @@ import qiskit
 import qiskit_optimization
 import scipy
 from matplotlib import pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Patch
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.circuit import Instruction, Parameter
 from qiskit.circuit.library import qaoa_ansatz
@@ -63,7 +63,7 @@ class Config:
 
     # COBYLA; rhobeg ≈ grid spacing (γ: 16π/799 ≈ 0.063, β: π/40 ≈ 0.079)
     rhobeg: float = 0.1
-    maxiter: int = 1000
+    maxiter: int = 2000
 
     # Simulation
     shots: int = 10_000
@@ -336,8 +336,8 @@ def plot_convergence(history: list[float], reps: int, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(SLIDE_FIG_WIDTH, 5))
     ax.plot(history, marker=".")
     ax.set_xlabel("Iteration (COBYLA)")
-    ax.set_ylabel("⟨C⟩ – erwartete Kosten")
-    ax.set_title(f"Konvergenz der Parameteroptimierung (p = {reps})")
+    ax.set_ylabel(r"$F_p$ – erwartete Kosten")
+    ax.set_title(rf"Konvergenz der Parameteroptimierung $(p = {reps})$")
     fig.tight_layout()
     fig.savefig(path, dpi=400)
     plt.close(fig)
@@ -347,14 +347,14 @@ def plot_landscape(betas, gammas, raster, start, path: Path) -> None:
     """Energy landscape of the p = 1 grid search (backup slide)."""
     fig, ax = plt.subplots(figsize=(SLIDE_FIG_WIDTH, 5))
     mesh = ax.pcolormesh(gammas, betas, raster, shading="nearest", cmap="viridis")
-    fig.colorbar(mesh, ax=ax, label="⟨C⟩ – erwartete Kosten")
+    fig.colorbar(mesh, ax=ax, label=r"$F_p$ – erwartete Kosten")
     ax.plot(start[1], start[0], marker="*", color="red", markersize=14,
             label="Minimum (Raster)")
     ax.axvline(2 * np.pi, color="white", linestyle="--",
-               label="γ = 2π (übliches Suchfenster)")
-    ax.set_xlabel("γ")
-    ax.set_ylabel("β")
-    ax.set_title("Energielandschaft ⟨C⟩(γ, β), p = 1")
+               label=r"$\gamma = 2\pi$ (übliches Suchfenster)")
+    ax.set_xlabel(r"$\gamma$")
+    ax.set_ylabel(r"$\beta$")
+    ax.set_title(r"Energielandschaft $F_p(\boldsymbol{\gamma}, \boldsymbol{\beta})$, $p = 1$")
     ax.legend(loc="upper right", fontsize="small")
     fig.tight_layout()
     fig.savefig(path, dpi=400)
@@ -366,6 +366,9 @@ def plot_distribution(pf: Portfolio, prob: dict, cfg: Config, path: Path) -> Non
     x_opt = pf.feasible[0]
     infeasible = sorted(set(pf.all_x) - set(pf.feasible), key=pf.cost)
     x_sorted = pf.feasible + infeasible
+    categories = {"tab:green": "Optimum",
+                  "tab:blue": "zulässig",
+                  "tab:red": "unzulässig"}
     colors = ["tab:green" if x == x_opt
               else "tab:blue" if sum(x) == pf.budget
     else "tab:red" for x in x_sorted]
@@ -376,13 +379,17 @@ def plot_distribution(pf: Portfolio, prob: dict, cfg: Config, path: Path) -> Non
             color=colors)
     ax.invert_yaxis()  # best portfolio at the top
     ax.axvline(1 / 2 ** pf.n, color="gray", linestyle="--",
-               label=f"Raten (1/{2 ** pf.n})")
+               label=rf"Raten $(1/{2 ** pf.n})$")
     ax.set_xlabel("Messwahrscheinlichkeit")
     # Centred on the figure, not the axes (the long labels shift the axes
     # right). {{\min}}: literal braces; a bare {min} would insert Python's min()
     fig.suptitle(f"Messverteilung nach Optimierung "
-                 rf"(p = {cfg.reps}, $\alpha_{{\min}}$, {cfg.shots} Shots)")
-    ax.legend()
+                 rf"($p = {cfg.reps}$, $\alpha_{{\min}}$, {cfg.shots} Shots)")
+    # Bar colours are not labelled artists, so their legend entries are
+    # added as patches in front of the guessing line
+    handles = [Patch(color=c, label=label) for c, label in categories.items()]
+    ax.legend(handles=handles + ax.get_legend_handles_labels()[0],
+              loc="lower right")
     fig.tight_layout()
     fig.savefig(path, dpi=400)
     plt.close(fig)
@@ -485,7 +492,7 @@ def main(cfg: Config | None = None) -> dict:
     result = qaoa.optimize(initial_point(*start, cfg.reps), cfg)
     betas_opt, gammas_opt = result.x[:cfg.reps], result.x[cfg.reps:]
     print(f"Optimiert: γ* = {np.round(gammas_opt, 4)}, β* = {np.round(betas_opt, 4)}, "
-          f"<C> = {result.fun:.4f} nach {len(qaoa.history)} Auswertungen")
+          f"F_C = {result.fun:.4f} nach {len(qaoa.history)} Auswertungen")
 
     # 3. Measuring with the optimal parameters
     prob = sample(qaoa, result.x, pf, sampler, cfg.shots)

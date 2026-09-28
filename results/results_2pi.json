@@ -4,11 +4,11 @@
     "budget": 2,
     "lam": 0.5,
     "reps": 1,
-    "gamma_max": 50.26548245743669,
+    "gamma_max": 6.283185307179586,
     "n_gamma": 800,
     "n_beta": 40,
     "rhobeg": 0.1,
-    "maxiter": 2000,
+    "maxiter": 1000,
     "shots": 10000,
     "seed": 42,
     "n": 4,
@@ -16,44 +16,44 @@
   },
   "optimierung": {
     "beta_opt": [
-      0.7263379960662684
+      1.223868486452674
     ],
     "gamma_opt": [
-      40.37556789562572
+      5.813057298131862
     ],
-    "erwartete_kosten": -0.06705435127452386,
-    "auswertungen_cobyla": 48
+    "erwartete_kosten": 0.014026490211538567,
+    "auswertungen_cobyla": 59
   },
   "ergebnis": {
     "optimum": "GOOG+NVDA",
-    "P_zul": 0.7366,
-    "P_opt": 0.5661,
+    "P_zul": 0.672,
+    "P_opt": 0.1902,
     "P_zul_raten": 0.375,
     "P_opt_raten": 0.0625,
     "zulaessige_portfolios": {
       "GOOG+NVDA": {
         "C": -0.2557076127676121,
-        "gemessen": 0.5661
+        "gemessen": 0.1902
       },
       "GOOG+META": {
         "C": -0.20001902752067946,
-        "gemessen": 0.0418
+        "gemessen": 0.136
       },
       "GOOG+AMZN": {
         "C": -0.1645275593671646,
-        "gemessen": 0.0145
+        "gemessen": 0.1252
       },
       "META+NVDA": {
         "C": -0.02809553063976855,
-        "gemessen": 0.0569
+        "gemessen": 0.0837
       },
       "AMZN+NVDA": {
         "C": -0.002408530765205863,
-        "gemessen": 0.0513
+        "gemessen": 0.0741
       },
       "AMZN+META": {
         "C": 0.06583026403861375,
-        "gemessen": 0.006
+        "gemessen": 0.0628
       }
     }
   },

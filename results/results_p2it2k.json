@@ -3,7 +3,7 @@
     "datafile": "portfolio_daten.npz",
     "budget": 2,
     "lam": 0.5,
-    "reps": 1,
+    "reps": 2,
     "gamma_max": 50.26548245743669,
     "n_gamma": 800,
     "n_beta": 40,
@@ -16,44 +16,46 @@
   },
   "optimierung": {
     "beta_opt": [
-      0.7263379960662684
+      0.8169808872886035,
+      0.14101212230688118
     ],
     "gamma_opt": [
-      40.37556789562572
+      40.440083500387644,
+      38.60453056126641
     ],
-    "erwartete_kosten": -0.06705435127452386,
-    "auswertungen_cobyla": 48
+    "erwartete_kosten": -0.0887538559214886,
+    "auswertungen_cobyla": 1241
   },
   "ergebnis": {
     "optimum": "GOOG+NVDA",
-    "P_zul": 0.7366,
-    "P_opt": 0.5661,
+    "P_zul": 0.7641,
+    "P_opt": 0.6268,
     "P_zul_raten": 0.375,
     "P_opt_raten": 0.0625,
     "zulaessige_portfolios": {
       "GOOG+NVDA": {
         "C": -0.2557076127676121,
-        "gemessen": 0.5661
+        "gemessen": 0.6268
       },
       "GOOG+META": {
         "C": -0.20001902752067946,
-        "gemessen": 0.0418
+        "gemessen": 0.019
       },
       "GOOG+AMZN": {
         "C": -0.1645275593671646,
-        "gemessen": 0.0145
+        "gemessen": 0.0315
       },
       "META+NVDA": {
         "C": -0.02809553063976855,
-        "gemessen": 0.0569
+        "gemessen": 0.0622
       },
       "AMZN+NVDA": {
         "C": -0.002408530765205863,
-        "gemessen": 0.0513
+        "gemessen": 0.0202
       },
       "AMZN+META": {
         "C": 0.06583026403861375,
-        "gemessen": 0.006
+        "gemessen": 0.0044
       }
     }
   },
