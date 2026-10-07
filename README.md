@@ -12,8 +12,8 @@ Portfolio optimization aims to find an allocation that balances expected return 
 
 In this project, a portfolio selection problem is formulated using binary decision variables:
 
-- `xᵢ = 1`: asset `i` is selected
-- `xᵢ = 0`: asset `i` is not selected
+- $xᵢ = 1$ : asset $i$ is selected
+- $xᵢ = 0$ : asset $i$ is not selected
 
 The optimization objective combines expected returns and portfolio risk and is formulated as a **QUBO** problem. The resulting QUBO is then mapped to an Ising Hamiltonian and used as the cost Hamiltonian for QAOA.
 
@@ -51,17 +51,14 @@ The portfolio selection problem is formulated using a mean-variance objective. T
 
 A typical objective has the form
 
-\[
-\min_x \;
-\lambda x^\top \Sigma x - \mu^\top x
-\]
+$$\min_x \; \lambda x^\top \Sigma x - \mu^\top x$$
 
 where:
 
-- `x` is the binary asset-selection vector,
-- `μ` is the expected-return vector,
-- `Σ` is the covariance matrix,
-- `λ` controls the trade-off between risk and return.
+- $x$ is the binary asset-selection vector,
+- $μ$ is the expected-return vector,
+- $Σ$ is the covariance matrix,
+- $λ$ controls the trade-off between risk and return.
 
 Additional constraints can be incorporated into the QUBO formulation using penalty terms.
 
