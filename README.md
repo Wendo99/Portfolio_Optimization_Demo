@@ -1,8 +1,8 @@
-# Portfolio Optimization Demo
+# QAOA – Portfolio Optimization Demo
 
 WORK IN PROGRESS
 
-A Python demonstration of portfolio optimization using the **Markowitz mean-variance model**, **Quadratic Unconstrained Binary Optimization (QUBO)**, and the **Quantum Approximate Optimization Algorithm (QAOA)** with Qiskit.
+A demonstration of portfolio optimization with **Quantum Approximate Optimization Algorithm (QAOA)** implemented with IBMs Quantum Framework Qiskit.
 
 The project explores how a classical financial optimization problem can be transformed into a combinatorial optimization problem and subsequently formulated for a quantum optimization algorithm.
 
@@ -10,11 +10,7 @@ The project explores how a classical financial optimization problem can be trans
 
 Portfolio optimization aims to find an allocation that balances expected return and risk.
 
-Historical market data is obtained using [`yfinance`](https://github.com/ranaroussi/yfinance).
-
-The optimization uses a fixed four-asset instance. Each binary variable indicates whether an asset is selected; the budget is exactly two assets.
-
-The optimization objective combines expected returns and portfolio risk and is formulated as a **QUBO** problem. The resulting QUBO is then mapped to an Ising Hamiltonian and used as the cost Hamiltonian for QAOA.
+The optimization objective combines expected returns and portfolio risk and is formulated in a Markowitz mean-variance model. The resulting Quadratic Unconstrained Binary Optimization (QUBO) is then mapped to an Ising Hamiltonian and used as the cost Hamiltonian for QAOA.
 
 The project therefore follows the workflow:
 
@@ -33,6 +29,10 @@ QAOA
     ↓
 Measurement & Evaluation
 ```
+
+Historical market data is obtained using [`yfinance`](https://github.com/ranaroussi/yfinance).
+
+The optimization uses a fixed four-asset instance. Each binary variable indicates whether an asset is selected; the budget is exactly two assets.
 
 ## Project Structure
 
